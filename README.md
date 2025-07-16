@@ -49,6 +49,7 @@
 -   **リント**: ESLint
 -   **パッケージ管理**: npm
 
+![技術構成図](/public/configuration_diagram.png)
 ## 開発手順（ローカル環境構築）
 
 ```bash
