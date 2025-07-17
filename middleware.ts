@@ -4,15 +4,13 @@ import type { NextRequest } from "next/server";
 // 認証が必要なページのパス
 const protectedPaths = ["/elder/dashboard"]; 
 
-// 認証が不要な公開ページのパス
-const notProtectedPaths = ["/"];
 
 export function middleware(request: NextRequest) {
   const session = request.cookies.get("auth-cookie");
   const { pathname } = request.nextUrl;
 
   // ログイン済みユーザーがサインイン・サインアップページにアクセスした場合、ダッシュボードにリダイレクト
-  if (session && (pathname.startsWith("/sign-in") || pathname.startsWith("/sign-up") || pathname.startsWith("/setup/account"))) {
+  if (session && (pathname.startsWith("/sign-in") || pathname.startsWith("/sign-up"))) {
     return NextResponse.redirect(new URL("/elder/dashboard", request.url));
   }
 

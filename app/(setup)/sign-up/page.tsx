@@ -59,14 +59,29 @@ export default function Page() {
             const provider = new GoogleAuthProvider();
             const result = await signInWithPopup(auth, provider);
             const user = result.user;
-
             Cookies.set("auth-cookie", JSON.stringify(user), { expires: 7 });
-            router.push("/setup/account");
-        } catch {
-            console.log("予期せぬエラーが発生しました");
+    
+            const authToken = await user.getIdToken();
+    
+            const response = await fetch("/api/auth/check", {
+                method: "GET",
+                headers: {
+                    Authorization: authToken,
+                },
+            });
+    
+            if (response.status === 200) {
+                router.push("/elder/dashboard");
+            } else if (response.status === 404) {
+                router.push("/setup/account");
+            } else {
+                router.push("/");
+            }
+        } catch (error) {
+            console.error("予期せぬエラーが発生しました");
             router.push("/");
         }
-    };
+      };
 
     // const signInWithEmail = async (data: FormData) => {
     //     try {
