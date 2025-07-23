@@ -1,4 +1,4 @@
-import { adminAuth, db } from "@/lib/firebase-admin";
+import { authAdmin, dbAdmin } from "@/lib/firebase-admin";
 import { NextResponse, NextRequest } from "next/server";
 
 export async function GET(req: NextRequest) {
@@ -8,11 +8,13 @@ export async function GET(req: NextRequest) {
         return NextResponse.json({ message: "認証トークンが不足しています。" }, { status: 400 });
     }
 
+    console.log("Received auth token:", authToken);
+
     try {
-        const decodedToken = await adminAuth.verifyIdToken(authToken);
+        const decodedToken = await authAdmin.verifyIdToken(authToken);
         const uid = decodedToken.uid;
 
-        const userRef = db.collection("users").doc(uid);
+        const userRef = dbAdmin.collection("users").doc(uid);
         const userDoc = await userRef.get();
 
         if (userDoc.exists) {

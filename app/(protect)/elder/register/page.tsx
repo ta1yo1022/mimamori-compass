@@ -14,13 +14,18 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardTitle } from "@/components/ui/card";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { auth, db } from "@/lib/firebase";
-import { collection, doc, setDoc } from "firebase/firestore";
-// import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { auth } from "@/lib/firebase";
 import { useAuthState } from "react-firebase-hooks/auth";
 import { Separator } from "@/components/ui/separator";
 import Image from "next/image";
@@ -32,15 +37,15 @@ const ACCEPTED_IMAGE_TYPES = ["image/jpeg", "image/jpg", "image/png", "image/web
 
 // Zodスキーマでフォームのバリデーションルールを定義
 const formSchema = z.object({
-  name: z.string().min(1, { message: "姓名は必須です。" }),
+  lastName: z.string().min(1, { message: "姓は必須です。" }),
+  firstName: z.string().min(1, { message: "名は必須です。" }),
   prefecture: z.string().min(1, { message: "都道府県を選択してください。" }),
   city: z.string().min(1, { message: "市区町村を選択してください。" }),
   notificationEmail: z
     .string()
     .email({ message: "有効なメールアドレスを入力してください。" }),
-  clothingColor: z.string().min(1, { message: "服の色は必須です。" }),
   age: z.coerce
-    .number()
+    .number({ invalid_type_error: "有効な数値を入力してください。" })
     .int({ message: "整数で入力してください。" })
     .positive({ message: "年齢は正の数である必要があります。" })
     .min(1, { message: "年齢は必須です。" }),
@@ -53,7 +58,7 @@ const formSchema = z.object({
 });
 
 export default function Page() {
-  const [user] = useAuthState(auth);
+  const [user, loading, authError] = useAuthState(auth);
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -64,11 +69,11 @@ export default function Page() {
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      name: "",
+      lastName: "",
+      firstName: "",
       prefecture: "",
       city: "",
       notificationEmail: "",
-      clothingColor: "",
       age: undefined,
       medicalConditions: "",
       physicalCharacteristics: "",
@@ -103,17 +108,20 @@ export default function Page() {
       const url = URL.createObjectURL(file);
       setPreviewUrls((prev) => [...prev, url]);
     });
-
-    form.setValue("clothingPhotos", [...selectedFiles, ...validFiles]);
   };
+
 
   const removePhoto = (index: number) => {
     setSelectedFiles((prev) => prev.filter((_, i) => i !== index));
     setPreviewUrls((prev) => prev.filter((_, i) => i !== index));
-    form.setValue("clothingPhotos", selectedFiles.filter((_, i) => i !== index));
   };
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
+    if (loading) {
+      setError("認証情報を確認中です。");
+      return;
+    }
+    
     if (!user) {
       setError("ログインしていません。");
       return;
@@ -123,155 +131,205 @@ export default function Page() {
     setError(null);
 
     try {
-      // users/{uid}/eldersコレクションへの参照を作成し、新しいドキュメントIDを自動生成
-      const elderDocRef = doc(collection(db, "users", user.uid, "elders"));
-      const elderId = elderDocRef.id;
+      const token = await user.getIdToken();
+      const formData = new FormData();
+      
+      const { clothingPhotos, ...formValues } = values;
+      Object.entries(formValues).forEach(([key, value]) => {
+        if (value !== undefined && value !== null) {
+          formData.append(key, value.toString());
+        }
+      });
 
-      // 画像のアップロードとURLの取得
-      const photoUrls = await Promise.all(
-        selectedFiles.map(async (file) => {
-          // Handle file upload logic here or remove this block if unnecessary
-          throw new Error("Storage functionality is not implemented.");
-        })
-      );
+      selectedFiles.forEach((file) => {
+        formData.append('files', file);
+      });
 
-      // 保存するデータにIDと画像URLを追加
-      const dataToSave = {
-        ...values,
-        id: elderId,
-        uid: user.uid,
-        createdAt: new Date(),
-        clothingPhotoUrls: photoUrls,
-      };
+      const response = await fetch('/api/elder/register', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+        body: formData,
+      });
 
-      // Firestoreにデータを保存
-      await setDoc(elderDocRef, dataToSave);
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || '登録に失敗しました');
+      }
 
-      // 登録成功後、ダッシュボードにリダイレクト
       router.push("/elder/dashboard");
     } catch (e) {
       console.error("Error adding document: ", e);
-      setError("情報の登録に失敗しました。もう一度お試しください。");
+      setError(e instanceof Error ? e.message : "情報の登録に失敗しました。もう一度お試しください。");
       setIsLoading(false);
     }
   }
 
   return (
-    <div className="flex justify-center sm:mt-5 bg-background p-4">
-      <Card className="w-full max-w-2xl border-none sm:border shadow-none sm:shadow">
-        <CardHeader>
-          <CardTitle className="text-2xl">みまもられる方の情報登録</CardTitle>
-        </CardHeader>
+    <div className="flex flex-col items-start w-full max-w-2xl mx-auto my-8 bg-background">
+      <h1 className="text-2xl text-left pb-2 font-medium sm:px-0 px-6">みまもられる方の情報登録</h1>
+      <p className="sm:px-0 px-6 pb-6">みまもりを開始するあなたの家族の認知症高齢者の情報を登録しましょう。</p>
+      <Card className="w-full border-none sm:border shadow-none sm:shadow pt-0 sm:pt-8 py-0 sm:py-8">
         <CardContent>
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
-              <div className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <FormField
-                    control={form.control}
-                    name="name"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>
-                          姓名<span className="text-red-600">*</span>
-                        </FormLabel>
-                        <FormControl>
-                          <Input placeholder="山田 太郎" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="age"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>
-                          年齢<span className="text-red-600">*</span>
-                        </FormLabel>
-                        <FormControl>
-                          <Input type="number" placeholder="80" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <div className="col-span-2 grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-8">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  <div className="grid grid-cols-2 md:col-span-3 gap-4 sm:gap-6">
                     <FormField
                       control={form.control}
-                      name="prefecture"
+                      name="lastName"
                       render={({ field }) => (
                         <FormItem>
                           <FormLabel>
-                            都道府県<span className="text-red-600">*</span>
+                            姓<span className="text-red-600">*</span>
                           </FormLabel>
                           <FormControl>
-                            <select
-                              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                              {...field}
-                              onChange={(e) => {
-                                field.onChange(e);
-                                setSelectedPrefecture(e.target.value);
-                                form.setValue("city", "");
-                              }}
-                            >
-                              <option value="">選択してください</option>
-                              {prefectures.map((pref) => (
-                                <option key={pref} value={pref}>
-                                  {pref}
-                                </option>
-                              ))}
-                            </select>
+                            <Input placeholder="山田" {...field} />
                           </FormControl>
-                          <FormMessage />
+                          <FormMessage className="min-h-[1.25rem]" />
                         </FormItem>
                       )}
                     />
                     <FormField
                       control={form.control}
-                      name="city"
+                      name="firstName"
                       render={({ field }) => (
                         <FormItem>
                           <FormLabel>
-                            市区町村<span className="text-red-600">*</span>
+                            名<span className="text-red-600">*</span>
                           </FormLabel>
                           <FormControl>
-                            <select
-                              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                              {...field}
-                              disabled={!selectedPrefecture}
-                            >
-                              <option value="">選択してください</option>
-                              {selectedPrefecture &&
-                                cities[selectedPrefecture]?.map((city) => (
-                                  <option key={city} value={city}>
-                                    {city}
-                                  </option>
-                                ))}
-                            </select>
+                            <Input placeholder="太郎" {...field} />
                           </FormControl>
-                          <FormMessage />
+                          <FormMessage className="min-h-[1.25rem]" />
                         </FormItem>
                       )}
                     />
                   </div>
                 </div>
-              </div>
+                <FormField
+                  control={form.control}
+                  name="age"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>
+                        年齢<span className="text-red-600">*</span>
+                      </FormLabel>
+                      <FormControl>
+                        <Input type="number" placeholder="80" {...field} value={field.value ?? ""} />
+                      </FormControl>
+                      <FormMessage className="min-h-[1.25rem]" />
+                    </FormItem>
+                  )}
+                />
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <FormField
+                      control={form.control}
+                      name="prefecture"
+                      render={({ field, fieldState }) => (
+                        <FormItem>
+                          <FormLabel>
+                            都道府県<span className="text-red-600">*</span>
+                          </FormLabel>
+                          <FormControl>
+                          <Select
+                            onValueChange={(value) => {
+                              field.onChange(value);
+                              setSelectedPrefecture(value);
+                              form.setValue("city", "");
+                            }}
+                            defaultValue={field.value}
+                          >
+                            <FormControl>
+                              <SelectTrigger
+                                className={fieldState.invalid ? "border-red-500 w-full" : "w-full"}
+                              >
+                                <SelectValue placeholder="選択してください" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              {prefectures.map((pref) => (
+                                <SelectItem key={pref} value={pref}>
+                                  {pref}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                            </Select>
+                          </FormControl>
+                          <FormMessage className="min-h-[1.25rem]" />
+                        </FormItem>
+                      )}
+                    />
+                  <FormField
+                    control={form.control}
+                    name="city"
+                    render={({ field, fieldState }) => (
+                      <FormItem>
+                        <FormLabel>
+                          市区町村<span className="text-red-600">*</span>
+                        </FormLabel>
+                        <FormControl>
+                          <Select
+                            onValueChange={field.onChange}
+                            defaultValue={field.value}
+                            disabled={!selectedPrefecture}
+                          >
+                            <FormControl>
+                              <SelectTrigger
+                                className={fieldState.invalid ? "border-red-500 w-full" : "w-full"}
+                              >
+                                <SelectValue placeholder="選択してください" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              {selectedPrefecture &&
+                                cities[selectedPrefecture]?.map((city) => (
+                                  <SelectItem key={city} value={city}>
+                                    {city}
+                                  </SelectItem>
+                                ))}
+                            </SelectContent>
+                          </Select>
+                          </FormControl>
+                          <FormMessage className="min-h-[1.25rem]" />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+              
+                <FormField
+                  control={form.control}
+                  name="notificationEmail"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>
+                        通知用メールアドレス<span className="text-red-600">*</span>
+                      </FormLabel>
+                      <FormControl>
+                        <Input type="email" placeholder="example@mail.com" {...field} />
+                      </FormControl>
+                      <FormMessage className="min-h-[1.25rem]" />
+                    </FormItem>
+                  )}
+                />
 
               <Separator />
 
-              <div className="space-y-4">
+              <div className="space-y-8">
                 <FormItem>
                   <FormLabel>普段着ている服の写真（最大3枚）</FormLabel>
                   <FormControl>
-                    <div className="space-y-4">
+                    <div className="">
                       <Input
                         type="file"
                         accept="image/jpeg,image/jpg,image/png,image/webp"
                         onChange={handleFileChange}
                         disabled={selectedFiles.length >= 3}
                         className="cursor-pointer"
+                        multiple
                       />
                       <div className="grid grid-cols-3 gap-4">
                         {previewUrls.map((url, index) => (
@@ -298,7 +356,7 @@ export default function Page() {
                   <FormDescription>
                     JPG、PNG、WEBP形式の画像（5MB以下）をアップロードしてください。
                   </FormDescription>
-                  <FormMessage />
+                  <FormMessage className="min-h-[1.25rem]" />
                 </FormItem>
                 <div className="space-y-6">
                   <FormField
@@ -313,7 +371,7 @@ export default function Page() {
                             {...field}
                           />
                         </FormControl>
-                        <FormMessage />
+                        <FormMessage className="min-h-[1.25rem]" />
                       </FormItem>
                     )}
                   />
@@ -329,18 +387,20 @@ export default function Page() {
                             {...field}
                           />
                         </FormControl>
-                        <FormMessage />
+                        <FormMessage className="min-h-[1.25rem]" />
                       </FormItem>
                     )}
                   />
                 </div>
               </div>
 
-              {error && (
-                <p className="text-sm font-medium text-destructive">{error}</p>
+              {(error || authError) && (
+                <p className="text-sm font-medium text-destructive">
+                  {error || authError?.message}
+                </p>
               )}
 
-              <Button type="submit" disabled={isLoading} className="w-full">
+              <Button type="submit" disabled={loading || isLoading} className="w-full">
                 {isLoading ? "登録中..." : "登録する"}
               </Button>
             </form>

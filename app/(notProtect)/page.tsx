@@ -3,7 +3,7 @@
 import { BarChartIcon, Bell, MoveRight, ShieldCheckIcon } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+
 
 // import Hero from "@/components/top/Hero";
 // import Problem from "@/components/top/Problem";
@@ -29,48 +29,7 @@ const features = [
   },
 ];
 
-const faqItems = [
-  {
-    question: "本当に無料で使えるんですか？",
-    answer:
-      "はい！みまもりコンパスは、どなたでも完全無料でご利用いただけます。初期費用や月額料金、更新料などは一切かかりませんので、安心してお使いください。",
-  },
-  {
-    question: "QRコードはどうやって発行できますか？",
-    answer:
-      "認知症の方の情報を登録すると、QRコード発行ページからダウンロードできます。シール用紙などに印刷して、衣服や持ち物に貼ってご利用ください。",
-  },
-  {
-    question: "個人情報はちゃんと守られますか？",
-    answer:
-      "はい、大切な情報はしっかり保護されています。QRコード自体には個人情報は含まれず、発見者には必要最低限の情報だけが表示されます。データは暗号化され、安全に管理されていますのでご安心ください。",
-  },
-  {
-    question: "発見した人は特別なアプリが必要ですか？",
-    answer:
-      "いいえ、特別なアプリは不要です！スマートフォンのカメラでQRコードを読み取るだけで、発見報告ページが開きます。",
-  },
-  {
-    question: "家族にはどんなふうに通知が届きますか？",
-    answer:
-      "発見者がQRコードを読み取ると、ご家族の登録メールアドレスに通知が届きます。通知には発見された場所の位置情報が含まれています。",
-  },
-  {
-    question: "QRコードはどこに貼るのがいいですか？",
-    answer:
-      "衣服の背中側や、持ち物（お財布、バッグなど）に貼るのがおすすめです。目立ちすぎない場所でも、発見者が気づきやすい位置に貼ると安心です。",
-  },
-  {
-    question: "どの地域で利用できますか？",
-    answer:
-      "日本全国どこでもご利用いただけます！インターネット環境があれば、QRコードはどこでも読み取れます。海外でも技術的には使用可能ですが、日本語対応のため国内利用をおすすめします。",
-  },
-  {
-    question: "登録できる人数に制限はありますか？",
-    answer:
-      "いいえ、何人でも登録できます！ご家族や親戚の方など、必要な方をすべて登録できますので、ご安心ください。",
-  },
-];
+
 
 
 

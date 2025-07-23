@@ -1,14 +1,8 @@
 "use client";
 
-import { auth } from "@/lib/firebase";
-import { useState, useEffect } from "react";
 import Image from "next/image";
-import { useRouter } from "next/navigation";
-import { GoogleAuthProvider, onAuthStateChanged, signInWithPopup, User } from "firebase/auth";
-import Cookies from "js-cookie";
 import Link from "next/link";
 import { Noto_Sans_JP } from "next/font/google";
-import { SignedIn, SignedOut, SignInButton, UserButton } from "@clerk/nextjs";
 
 const notoSans = Noto_Sans_JP({
   weight: "700",

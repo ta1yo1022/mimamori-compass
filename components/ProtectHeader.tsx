@@ -4,7 +4,7 @@ import { auth } from "@/lib/firebase";
 import { useState, useEffect, useRef } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { onAuthStateChanged, User, signOut, deleteUser } from "firebase/auth";
+import { signOut, deleteUser } from "firebase/auth";
 import Cookies from "js-cookie";
 import Link from "next/link";
 import { Noto_Sans_JP } from "next/font/google";
@@ -12,6 +12,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { LogOut, Trash2 } from "lucide-react";
+import { useAuthState } from "react-firebase-hooks/auth";
 
 const notoSans = Noto_Sans_JP({
   weight: "600",
@@ -19,22 +20,12 @@ const notoSans = Noto_Sans_JP({
 });
 
 function ProtectHeader() {
+  const [user, loading] = useAuthState(auth);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [username, setUsername] = useState<string | null>(null);
-  const [useremail, setUseremail] = useState<string | null>(null);
-  const [photoURL, setPhotoURL] = useState<string | null>(null);
   const modalRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
 
   useEffect(() => {
-    const cookieData = Cookies.get("auth-cookie");
-    if (cookieData) {
-      const userData = JSON.parse(cookieData);
-      setUsername(userData.displayName);
-      setUseremail(userData.email);
-      setPhotoURL(userData.photoURL);
-    }
-
     const handleClickOutside = (event: MouseEvent) => {
       if (modalRef.current && !modalRef.current.contains(event.target as Node)) {
         setIsModalOpen(false);
@@ -58,7 +49,6 @@ function ProtectHeader() {
   };
 
   const handleDelete = async () => {
-    const user = auth.currentUser;
     if (user) {
       try {
         await deleteUser(user);
@@ -80,31 +70,33 @@ function ProtectHeader() {
 
         <div className="relative">
           <Avatar className="h-10 w-10 cursor-pointer" onClick={() => setIsModalOpen(!isModalOpen)}>
-            {photoURL ? (
-              <AvatarImage src={photoURL} alt="User avatar" />
-            ) : (
+            {loading ? (
               <AvatarFallback className="animate-pulse bg-gray-200" />
+            ) : user && user.photoURL ? (
+              <AvatarImage src={user.photoURL} alt="User avatar" />
+            ) : (
+              <AvatarFallback>{user?.email?.charAt(0).toUpperCase()}</AvatarFallback>
             )}
           </Avatar>
 
-          {isModalOpen && (
+          {isModalOpen && user && (
             <Card
               ref={modalRef}
               className="absolute top-full right-0 mt-2 w-[260px] sm:w-[300px] z-10 shadow-lg"
             >
               <CardHeader className="flex flex-row items-center gap-4 space-y-0">
                 <Avatar className="h-10 w-10">
-                  {photoURL ? (
-                    <AvatarImage src={photoURL} alt="@username" height={35} width={35} />
+                  {user.photoURL ? (
+                    <AvatarImage src={user.photoURL} alt={user.displayName || "User avatar"} height={35} width={35} />
                   ) : (
-                    <AvatarFallback className="animate-pulse bg-gray-200" />
+                    <AvatarFallback>{user.email?.charAt(0).toUpperCase()}</AvatarFallback>
                   )}
                 </Avatar>
                 <div className="flex flex-col space-y-1">
                   <h4 className="text-sm font-semibold">
-                    {username || "ゲスト"}
+                    {user.displayName || "ゲスト"}
                   </h4>
-                  <p className="text-xs text-muted-foreground">{useremail || "No email"}</p>
+                  <p className="text-xs text-muted-foreground">{user.email || "No email"}</p>
                 </div>
               </CardHeader>
               <CardContent className="grid gap-4">

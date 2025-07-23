@@ -1,4 +1,4 @@
-import { adminAuth, db } from "@/lib/firebase-admin";
+import { authAdmin, dbAdmin } from "@/lib/firebase-admin";
 import { FieldValue } from "firebase-admin/firestore";
 import { NextResponse, NextRequest } from "next/server";
 
@@ -10,10 +10,10 @@ export async function POST(req: NextRequest) {
     }
 
     try {
-        const decodedToken = await adminAuth.verifyIdToken(authToken);
+        const decodedToken = await authAdmin.verifyIdToken(authToken);
         const uid = decodedToken.uid;
 
-        const userRef = db.collection("users").doc(uid);
+        const userRef = dbAdmin.collection("users").doc(uid);
         const userDoc = await userRef.get();
 
         if (userDoc.exists) {

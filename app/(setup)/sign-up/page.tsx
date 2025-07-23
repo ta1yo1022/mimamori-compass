@@ -2,13 +2,11 @@
 
 import React from "react";
 import Image from "next/image";
-import { createUserWithEmailAndPassword, GoogleAuthProvider, signInWithPopup } from "firebase/auth";
+import { GoogleAuthProvider, signInWithPopup } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 import Cookies from "js-cookie";
 import { useRouter } from "next/navigation";
-import { zodResolver } from "@hookform/resolvers/zod"
-import { useForm } from "react-hook-form"
-import { z } from "zod"
+
 // import { Button } from "@/components/ui/button"
 // import {
 //     Form,
@@ -22,51 +20,32 @@ import { z } from "zod"
 // import { Input } from "@/components/ui/input"
 import Link from "next/link";
 
-const formSchema = z.object({
-    firstName: z
-        .string()
-        .nonempty("名は必須です。"),
-    lastName: z
-        .string()
-        .nonempty("姓は必須です。"),
-    email: z
-        .string()
-        .nonempty("メールアドレスは必須です。")
-        .email("メールアドレスを正しく入力してください。"),
-    password: z
-        .string()
-        .nonempty("パスワードは必須です。")
-        .min(6, "パスワードは6文字以上で入力してください。")
-})
 
-type FormData = z.infer<typeof formSchema>;
 
 export default function Page() {
     const router = useRouter();
-
-    const form = useForm<FormData>({
-        resolver: zodResolver(formSchema),
-        defaultValues: {
-            firstName: "",
-            lastName: "",
-            email: "",
-            password: "",
-        },
-    });
 
     const signInWithGoogle = async () => {
         try {
             const provider = new GoogleAuthProvider();
             const result = await signInWithPopup(auth, provider);
             const user = result.user;
-            Cookies.set("auth-cookie", JSON.stringify(user), { expires: 7 });
-    
-            const authToken = await user.getIdToken();
-    
-            const response = await fetch("/api/auth/check", {
+      const idToken = await user.getIdToken();
+
+      // サーバーにIDトークンを送信してセッションCookieを生成
+      await fetch("/api/auth/sign-in", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ idToken }),
+      });
+
+      // ユーザーが新規か既存かを確認
+      const response = await fetch("/api/auth/check", {
                 method: "GET",
                 headers: {
-                    Authorization: authToken,
+                    Authorization: idToken,
                 },
             });
     
@@ -77,7 +56,7 @@ export default function Page() {
             } else {
                 router.push("/");
             }
-        } catch (error) {
+        } catch {
             console.error("予期せぬエラーが発生しました");
             router.push("/");
         }
